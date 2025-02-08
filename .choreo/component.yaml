@@ -1,0 +1,7 @@
+schemaVersion: 1.0 
+
+endpoints:
+- name: whatsapp-webhook
+  service:
+    port: 8080  # Set this to the PORT your Node.js app listens on
+  type: REST
