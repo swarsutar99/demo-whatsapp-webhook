@@ -9,17 +9,17 @@ app.use(express.json());
 const { WEBHOOK_VERIFY_TOKEN, GRAPH_API_TOKEN, PORT } = process.env;
 const port = PORT || 3000;
 
-//  GET Webhook Verification Route
-app.get("/demowhatsappwebhook/demo-whatsapp-webhook/v1.0/webhook", (req, res) => {
-  const VERIFY_TOKEN = WEBHOOK_VERIFY_TOKEN;
+app.get("/webhook", (req, res) => {
+  const VERIFY_TOKEN = process.env.WEBHOOK_VERIFY_TOKEN;
+
+
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
-  console.log(`Webhook Verification Request - mode: ${mode}, token: ${token}`);
-
+  // Check if mode and token are valid
   if (mode === "subscribe" && token === VERIFY_TOKEN) {
-    console.log("Webhook verified successfully.");
+    console.log(" Webhook verified successfully.");
     res.status(200).send(challenge);
   } else {
     console.log(" Webhook verification failed.");
@@ -27,29 +27,32 @@ app.get("/demowhatsappwebhook/demo-whatsapp-webhook/v1.0/webhook", (req, res) =>
   }
 });
 
-//  POST Webhook (Handles Incoming WhatsApp Messages)
-app.post("/demowhatsappwebhook/demo-whatsapp-webhook/v1.0/webhook", async (req, res) => {
-  console.log(" Incoming webhook message:", JSON.stringify(req.body, null, 2));
+
+app.post("/webhook", async (req, res) => {
+  console.log("GRAPH_API_TOKEN:", process.env.GRAPH_API_TOKEN);
+  console.log("Incoming webhook message:", JSON.stringify(req.body, null, 2));
 
   const message = req.body.entry?.[0]?.changes[0]?.value?.messages?.[0];
 
   if (message?.type === "text") {
-    const business_phone_number_id = req.body.entry?.[0].changes?.[0].value?.metadata?.phone_number_id;
-    
+    const business_phone_number_id =
+      req.body.entry?.[0].changes?.[0].value?.metadata?.phone_number_id;
+
     try {
-      //  Send reply message
+      // Send reply message
       await axios({
         method: "POST",
         url: `https://graph.facebook.com/v18.0/${business_phone_number_id}/messages`,
         headers: {
           Authorization: `Bearer ${GRAPH_API_TOKEN}`,
-          "Content-Type": "application/json",
         },
         data: {
           messaging_product: "whatsapp",
           to: message.from,
           text: { body: "Echo: " + message.text.body },
-          context: { message_id: message.id },
+          context: {
+            message_id: message.id,
+          },
         },
       });
 
@@ -59,7 +62,6 @@ app.post("/demowhatsappwebhook/demo-whatsapp-webhook/v1.0/webhook", async (req, 
         url: `https://graph.facebook.com/v18.0/${business_phone_number_id}/messages`,
         headers: {
           Authorization: `Bearer ${GRAPH_API_TOKEN}`,
-          "Content-Type": "application/json",
         },
         data: {
           messaging_product: "whatsapp",
@@ -68,16 +70,16 @@ app.post("/demowhatsappwebhook/demo-whatsapp-webhook/v1.0/webhook", async (req, 
         },
       });
 
-      console.log(" Message processed successfully.");
+      console.log("Message processed successfully.");
     } catch (error) {
-      console.error(" Error sending reply:", error.response?.data || error);
+      console.error("Error sending reply:", error.response?.data || error);
     }
   }
 
   res.sendStatus(200);
 });
 
-//  Start the server
+// Start the server
 app.listen(port, () => {
-  console.log(`🚀 Server is running on port ${port}`);
+  console.log(`Server is running on port ${port}`);
 });
