@@ -55,8 +55,8 @@ app.post("/webhook", async (req, res) => {
       //     },
       //   }
       // );
-      console.log("arenas url:", HEROIC_API_URL+"/api/v1/whatsapp_messages");
-      console.log("Rails API Response:", railsResponse.data);
+      // console.log("arenas url:", HEROIC_API_URL+"/api/v1/whatsapp_messages");
+      // console.log("Rails API Response:", railsResponse.data);
 
       // **Send reply message via WhatsApp**
       await axios.post(
