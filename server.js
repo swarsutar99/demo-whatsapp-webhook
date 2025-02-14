@@ -44,19 +44,19 @@ app.post("/webhook", async (req, res) => {
 
     try {
       // **Store message in Rails API**
-      // const railsResponse = await axios.post(
-      //   `${HEROIC_API_URL}/api/v1/whatsapp_messages`,
-      //   req.body,
-      //   {
-      //     headers: {
-      //       "Content-Type": "application/json",
-      //       "Accept": "application/json",
-      //       "Api-Key": API_KEY, // Add API key if required
-      //     },
-      //   }
-      // );
-      // console.log("arenas url:", HEROIC_API_URL+"/api/v1/whatsapp_messages");
-      // console.log("Rails API Response:", railsResponse.data);
+      const railsResponse = await axios.post(
+        `${HEROIC_API_URL}/api/v1/whatsapp_messages`,
+        req.body,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Api-Key": API_KEY, // Add API key if required
+          },
+        }
+      );
+      console.log("arenas url:", HEROIC_API_URL+"/api/v1/whatsapp_messages");
+      console.log("Rails API Response:", railsResponse.data);
 
       // **Send reply message via WhatsApp**
       await axios.post(
