@@ -1,13 +1,21 @@
 import express from "express";
 import axios from "axios";
 import dotenv from "dotenv";
+import fs from "fs";
+import https from "https";
 
 dotenv.config();
 const app = express();
 app.use(express.json());
 
 const { WEBHOOK_VERIFY_TOKEN, GRAPH_API_TOKEN, HEROIC_API_URL, API_KEY, PORT } = process.env;
-const port = PORT || 3002;
+const port = 443; // Run directly on 443
+
+// SSL Configuration
+const options = {
+  key: fs.readFileSync("/etc/ssl/private/private.key"), 
+  cert: fs.readFileSync("/etc/ssl/certificate_plus_ca_bundle.crt")
+};
 
 app.get("/webhook", (req, res) => {
   const VERIFY_TOKEN = process.env.WEBHOOK_VERIFY_TOKEN;
@@ -38,7 +46,7 @@ app.post("/webhook", async (req, res) => {
       // **Store message in Rails API**
       const railsResponse = await axios.post(
         `${HEROIC_API_URL}/api/v1/whatsapp_messages`,
-        req.body, // Send the entire payload to Rails
+        req.body,
         {
           headers: {
             "Content-Type": "application/json",
@@ -75,14 +83,14 @@ app.post("/webhook", async (req, res) => {
 
       console.log("Message processed successfully.");
     } catch (error) {
-      console.error(" Error processing message:", error.response?.data || error);
+      console.error("Error processing message:", error.response?.data || error);
     }
   }
 
   res.sendStatus(200);
 });
 
-// Start the server
-app.listen(port, () => {
-  console.log(` Server is running on port ${port}`);
+// Start HTTPS Server
+https.createServer(options, app).listen(port, () => {
+  console.log(` Server is running securely on HTTPS port ${port}`);
 });
