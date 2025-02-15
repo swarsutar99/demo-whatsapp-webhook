@@ -11,7 +11,6 @@ app.use(express.json());
 const { WEBHOOK_VERIFY_TOKEN, GRAPH_API_TOKEN, HEROIC_API_URL, API_KEY, PORT } = process.env;
 const port = 3002; // Run directly on 443
 
-// SSL Configuration
 const options = {
   key: fs.readFileSync("/etc/ssl/private/private.key"), 
   cert: fs.readFileSync("/etc/ssl/certificate_plus_ca_bundle.crt")
@@ -33,55 +32,38 @@ app.get("/webhook", (req, res) => {
 });
 
 app.post("/webhook", async (req, res) => {
-  console.log("GRAPH_API_TOKEN:", process.env.GRAPH_API_TOKEN);
   console.log("Incoming webhook message:", JSON.stringify(req.body, null, 2));
 
   const message = req.body.entry?.[0]?.changes[0]?.value?.messages?.[0];
+  const business_phone_number_id = req.body.entry?.[0]?.changes[0]?.value?.metadata?.phone_number_id;
 
   if (message) {
-    const business_phone_number_id =
-      req.body.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id;
+    const userMessage = message.text?.body.toLowerCase();
 
     try {
-      // **Store message in Rails API**
-      const railsResponse = await axios.post(
-        `${HEROIC_API_URL}/api/v1/whatsapp_messages`,
-        req.body,
-        {
+      // **If user sends "hi", fetch game list and send options**
+      if (userMessage === "hi") {
+        const gamesResponse = await axios.get(`${HEROIC_API_URL}/user/games`, {
           headers: {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "Api-Key": API_KEY, // Add API key if required
+            "API_KEY": "2tnFcmn5Lk-a7xwmazAF",
           },
+        });
+
+        const games = gamesResponse.data.casinotables;
+        if (games.length === 0) {
+          await sendTextMessage(business_phone_number_id, message.from, "No games available right now.");
+        } else {
+          await sendInteractiveMessage(business_phone_number_id, message.from, games);
         }
-      );
-      console.log("arenas url:", HEROIC_API_URL+"/api/v1/whatsapp_messages");
-      console.log("Rails API Response:", railsResponse.data);
+      }
+      // **Handle game selection response**
+      else if (message.interactive?.type === "button_reply") {
+        const selectedGame = message.interactive.button_reply.title;
+        await sendTextMessage(business_phone_number_id, message.from, `You have selected this game: ${selectedGame}`);
+      }
 
-      // **Send reply message via WhatsApp**
-      await axios.post(
-        `https://graph.facebook.com/v18.0/${business_phone_number_id}/messages`,
-        {
-          messaging_product: "whatsapp",
-          to: message.from,
-          text: { body: "Echo: " + message.text.body },
-          context: { message_id: message.id },
-        },
-        { headers: { Authorization: `Bearer ${GRAPH_API_TOKEN}` } }
-      );
-
-      //  **Mark message as read**
-      await axios.post(
-        `https://graph.facebook.com/v18.0/${business_phone_number_id}/messages`,
-        {
-          messaging_product: "whatsapp",
-          status: "read",
-          message_id: message.id,
-        },
-        { headers: { Authorization: `Bearer ${GRAPH_API_TOKEN}` } }
-      );
-
-      console.log("Message processed successfully.");
     } catch (error) {
       console.error("Error processing message:", error.response?.data || error);
     }
@@ -89,6 +71,51 @@ app.post("/webhook", async (req, res) => {
 
   res.sendStatus(200);
 });
+
+// **Function to send interactive game selection message**
+async function sendInteractiveMessage(phoneNumberId, userPhone, games) {
+  const buttons = games.slice(0, 3).map((game, index) => ({
+    type: "reply",
+    reply: {
+      id: `game_${game.id}`,
+      title: game.title,
+    },
+  }));
+
+  const payload = {
+    messaging_product: "whatsapp",
+    to: userPhone,
+    type: "interactive",
+    interactive: {
+      type: "button",
+      body: { text: "Select a game to play:" },
+      action: {
+        buttons: buttons,
+      },
+    },
+  };
+
+  await axios.post(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, payload, {
+    headers: { Authorization: `Bearer ${GRAPH_API_TOKEN}` },
+  });
+
+  console.log("Interactive message sent.");
+}
+
+// **Function to send a text message**
+async function sendTextMessage(phoneNumberId, userPhone, text) {
+  const payload = {
+    messaging_product: "whatsapp",
+    to: userPhone,
+    text: { body: text },
+  };
+
+  await axios.post(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, payload, {
+    headers: { Authorization: `Bearer ${GRAPH_API_TOKEN}` },
+  });
+
+  console.log("Text message sent.");
+}
 
 // Start HTTPS Server
 https.createServer(options, app).listen(port, () => {
