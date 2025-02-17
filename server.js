@@ -70,7 +70,7 @@ app.get("/webhook", (req, res) => {
             "captcha_key": "123"
           });
 
-          const authResponse = await axios.post(`${RAILS_API_URL}/users/sign_in`, authData, {
+          const authResponse = await axios.post(`${HEROIC_API_URL}/users/sign_in`, authData, {
             headers: {
               "Content-Type": "application/x-www-form-urlencoded",
               "Api-Key": "2tnFcmn5Lk-a7xwmazAF",
