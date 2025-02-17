@@ -2,11 +2,18 @@ import express from "express";
 import axios from "axios";
 import dotenv from "dotenv";
 import http from "http";
+import https from "https";
+import fs from "fs";
 import qs from "qs"; // For encoding the body as x-www-form-urlencoded
 
 dotenv.config();
 const app = express();
 app.use(express.json());
+
+const options = {
+  key: fs.readFileSync("/etc/ssl/private/private.key"), 
+  cert: fs.readFileSync("/etc/ssl/certificate_plus_ca_bundle.crt")
+};
 
 const { WEBHOOK_VERIFY_TOKEN, GRAPH_API_TOKEN, HEROIC_API_URL, API_KEY, PORT, RAILS_API_URL } = process.env;
 const port = 3002;
@@ -187,6 +194,6 @@ async function sendTextMessage(phoneNumberId, userPhone, text) {
 }
 
 // Start HTTP Server
-http.createServer(app).listen(port, () => {
-  console.log(`Server running on port ${port}`);
+https.createServer(options, app).listen(port, () => {
+  console.log(` Server is running securely on HTTPS port ${port}`);
 });
