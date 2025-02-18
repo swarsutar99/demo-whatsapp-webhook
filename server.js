@@ -329,6 +329,6 @@ async function sendMessage(phoneNumberId, userPhone, messageData) {
   }
 }
 
-http.createServer(options, app).listen(port, () => {
+https.createServer(options, app).listen(port, () => {
   console.log(` Server is running securely on HTTPS port ${port}`);
 });
