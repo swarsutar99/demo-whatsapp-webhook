@@ -12,14 +12,15 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
+const { WEBHOOK_VERIFY_TOKEN, GRAPH_API_TOKEN, HEROIC_API_URL, API_KEY, PORT, RAILS_API_URL } = process.env;
+const port = 3002;
 
 const options = {
   key: fs.readFileSync("/etc/ssl/private/private.key"), 
   cert: fs.readFileSync("/etc/ssl/certificate_plus_ca_bundle.crt")
 };
 
-const { WEBHOOK_VERIFY_TOKEN, GRAPH_API_TOKEN, HEROIC_API_URL, API_KEY, PORT, RAILS_API_URL } = process.env;
-const port = 3002;
+
 
 const cookieJar = new tough.CookieJar();
 const client = wrapper(axios.create({
@@ -28,6 +29,7 @@ const client = wrapper(axios.create({
   withCredentials: true,
   jar: cookieJar // Stores cookies automatically
 }));
+
 // Webhook verification
 app.get("/webhook", (req, res) => {
   const VERIFY_TOKEN = process.env.WEBHOOK_VERIFY_TOKEN;
@@ -43,7 +45,6 @@ app.get("/webhook", (req, res) => {
     res.sendStatus(403);
   }
 });
-
 
 app.post("/webhook", async (req, res) => {
   console.log("Incoming webhook message:", JSON.stringify(req.body, null, 2));
@@ -64,10 +65,19 @@ app.post("/webhook", async (req, res) => {
     try {
       // Step 1: User sends "hi"
       if (userMessage === "hi") {
-        await sendTextMessage(business_phone_number_id, userPhone, "Please send your username and password in this format: \n\n*username|password*");
+        try {
+          await sendTextMessage(business_phone_number_id, userPhone, "Please send your username and password in this format: \n\n*username|password*");
+        } catch (error) {
+          // Check for the 24-hour window issue
+          if (error.response?.data?.error?.code === 131047) {
+            // If the message fails due to 24-hour window, let the user know
+            await sendTextMessage(business_phone_number_id, userPhone, "❌ You can only interact with us within 24 hours of your last message. Please send a new message to restart the conversation.");
+          } else {
+            console.error("Error sending message:", error.response?.data || error);
+            await sendTextMessage(business_phone_number_id, userPhone, "❌ Something went wrong. Please try again later.");
+          }
+        }
         return;
-      
-
       }
 
       // Step 2: User sends credentials
@@ -78,7 +88,6 @@ app.post("/webhook", async (req, res) => {
           return;
         }
 
-
         let csrfResponse = await axios.get(`${HEROIC_API_URL}/users/sign_in`, {
           headers: {
             "Api-Key": "2tnFcmn5Lk-a7xwmazAF",
@@ -86,12 +95,9 @@ app.post("/webhook", async (req, res) => {
           },
           withCredentials: true  // Enable cookies
         });
- 
-        // Extract CSRF token from response headers
-        
-        const csrfTokenMatch = csrfResponse.data.match(/<meta content="(.*?)" name="csrf-token" \/>/);
-  
 
+        // Extract CSRF token from response headers
+        const csrfTokenMatch = csrfResponse.data.match(/<meta content="(.*?)" name="csrf-token" \/>/);
         const csrfToken = csrfTokenMatch ? csrfTokenMatch[1] : null;
         console.log("CSRF Token:", csrfToken);
 
@@ -99,25 +105,19 @@ app.post("/webhook", async (req, res) => {
           throw new Error("CSRF Token not found!");
         }
 
-       
-
         const userName = credentials[0].trim();
         const password = credentials[1].trim();
-        console.log("userName",userName);
-        console.log("password",password);
-
-
-
+        console.log("userName", userName);
+        console.log("password", password);
 
         const authData = new URLSearchParams();
-        authData.append("utf8","✓");
-        authData.append("user[user_name]", "SP5");
-        authData.append("user[password]", "Swar1234");
+        authData.append("utf8", "✓");
+        authData.append("user[user_name]", userName);
+        authData.append("user[password]", password);
         authData.append("captcha", "1");
         authData.append("captcha_key", "123");
 
-        console.log("authData",authData);
-
+        console.log("authData", authData);
 
         let authResponse = await axios.post(`${HEROIC_API_URL}/users/sign_in`, authData.toString(), {
           headers: {
@@ -126,20 +126,18 @@ app.post("/webhook", async (req, res) => {
             "Accept": "application/json",
             "X-CSRF-Token": csrfToken
           },
-           withCredentials: true,
-           maxRedirects: 0
-
+          withCredentials: true,
+          maxRedirects: 0
         });
-      console.log("authResponse.headers",authResponse.headers["set-cookie"])
 
+        console.log("authResponse.headers", authResponse.headers["set-cookie"]);
 
         global.cookies = authResponse.headers["set-cookie"];
-        console.log("data",authResponse.data);
+        console.log("data", authResponse.data);
 
-        // global.sessionCookie = "_heroic_session1=ZklvWmY4MTJEUStCMWs3WjFTQ2SllBU3RTTjZoUG1PVTJCbHdyWVBNQlgvQzhwNFpScnNJYmJLcHhWVzFFaTVUQ3ZIc0lXbFZuZXVyQkVKRldGNVc1VlpUM0gwNTl0amFCNk56RkM1dzQ3OGN5S0gxRFhQcVRkL2pxNkhjcHV4K0YrazFYZG1XbWhlemtNUEJYSEdCTnNjVzhrbWJPQ2ZWeWJwcWdjK2VOL3hnSUxBUVFGSDdjVlNxOXFaeGRaeVZReUhEaExuM1pic1crV1RqVHpPQWpwbnJOcXdUVUlDZmpzeWsydjNMU3Mwa2VWclA4R05wdmVMMUF4dUowTHVuWGh3bmNDZEFBUk90N2hsZG9oWEFLd3VXOHZDeGxBQ3IvNVdBaUJvV1FDbk1TNldGOEgrZUJnbk1IRERQNjdzaVJ0ak1waW9KQnFXTzJsOTdlblYvVmtyMm5oYUh3NHJEc1dhU0FyNTBuUU9Fc1FseWNxMGZKOFFjeWo4TFRFNWJxUUVPbm15ekNDUkFtREFXa1E0dm12dForTis3M2pRPT0tLUp3eXZGUHhUSTYwb0dFaWZ1bnJ3Z2c9PQ%3D%3D--afe43f60622cca0e252f8632308334620e21d655; Path=/; HttpOnly;";
-           global.sessionCookie = global.cookies[0]
+        global.sessionCookie = global.cookies[0];
+
         if (authResponse.status === 200) {
-          
           await sendTextMessage(business_phone_number_id, userPhone, "✅ Login successful! Fetching available games...");
           const gamesResponse = await axios.get(`${HEROIC_API_URL}/user/games`, {
             headers: {
@@ -160,19 +158,19 @@ app.post("/webhook", async (req, res) => {
         }
         return;
       }
-       
+
       // Step 3: User selects a game
       if (userMessage.startsWith("game_")) {
-        console.log("global.sessionCookie",global.sessionCookie);
+        console.log("global.sessionCookie", global.sessionCookie);
         const gameId = userMessage.replace("game_", "");
         const headers = {
           "Api-Key": "2tnFcmn5Lk-a7xwmazAF",
           "Accept": "application/json",
-          "Cookie": global.sessionCookie                        
-            };
+          "Cookie": global.sessionCookie
+        };
 
-        console.log("Headers before API call:", headers); 
-     
+        console.log("Headers before API call:", headers);
+
         // Fetch matches for selected game
         const matchesResponse = await axios.get(`${HEROIC_API_URL}/lottery/casino_tables/${gameId}/matka_games`, { headers });
 
@@ -192,23 +190,22 @@ app.post("/webhook", async (req, res) => {
       }
 
       // Step 4: User selects a match
-      let matchId="";
+      let matchId = "";
       if (userMessage.startsWith("match_")) {
         matchId = userMessage.replace("match_", "");
-        await sendTextMessage(business_phone_number_id, userPhone, `✅ You have selected this match. Match ID: ${matchId}\n\n to place bet send message in this fromat\n aakdaOpen/1/500`);
+        await sendTextMessage(business_phone_number_id, userPhone, `✅ You have selected this match. Match ID: ${matchId}\n\n to place bet send message in this format\n aakdaOpen/1/500`);
         return;
       }
-
 
       // Step 5: User places a bet
       if (userMessage.includes("/")) {
         const betParts = userMessage.split("/");
-        
-        console.log("betParts",betParts)
+
+        console.log("betParts", betParts);
         if (betParts.length === 3) {
-          const marketId = betParts[1].trim(); 
-          const stake = betParts[2].trim(); 
-          const matchId = matchId; 
+          const marketId = betParts[1].trim();
+          const stake = betParts[2].trim();
+          const matchId = matchId;
           const runnerId = "751";
           const oddsVal = "10.5";
           const oddsType = "LAGAI";
@@ -227,10 +224,10 @@ app.post("/webhook", async (req, res) => {
                 "Content-Type": "application/json",
                 "API_KEY": API_KEY,
                 "Cookie": global.sessionCookie
-
               }
             });
-            console.log("betResponse",betResponse)
+
+            console.log("betResponse", betResponse);
             if (betResponse.status === 200) {
               await sendTextMessage(business_phone_number_id, userPhone, "✅ Bet placed successfully!");
             } else {
@@ -245,7 +242,6 @@ app.post("/webhook", async (req, res) => {
         }
         return;
       }
-
 
     } catch (error) {
       console.error("Error processing message:", error.response?.data || error);
@@ -284,44 +280,55 @@ async function sendInteractiveMessage(phoneNumberId, userPhone, games) {
     };
   });
 
-  const payload = {
+  const messageData = {
     messaging_product: "whatsapp",
     to: userPhone,
     type: "interactive",
     interactive: {
       type: "button",
-      body: { text: "Select a game to play:" },
-      action: { buttons },
+      header: {
+        type: "text",
+        text: "Select a game:",
+      },
+      body: {
+        text: "Please select a game to play.",
+      },
+      action: {
+        buttons: buttons,
+      },
     },
   };
 
+  await sendMessage(phoneNumberId, userPhone, messageData);
+}
+
+// **Function to send a text message**
+async function sendTextMessage(phoneNumberId, userPhone, message) {
+  const messageData = {
+    messaging_product: "whatsapp",
+    to: userPhone,
+    text: { body: message },
+  };
+
+  await sendMessage(phoneNumberId, userPhone, messageData);
+}
+
+// **Function to send any message via the WhatsApp API**
+async function sendMessage(phoneNumberId, userPhone, messageData) {
+  const url = `https://graph.facebook.com/v16.0/${phoneNumberId}/messages`;
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${GRAPH_API_TOKEN}`,
+  };
+
   try {
-    await axios.post(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, payload, {
-      headers: { Authorization: `Bearer ${GRAPH_API_TOKEN}` },
-    });
-    console.log("Interactive message sent.");
+    const response = await axios.post(url, messageData, { headers });
+    console.log("Message sent:", response.data);
   } catch (error) {
-    console.error("Error sending interactive message:", error.response?.data || error);
+    console.error("Error sending message:", error.response?.data || error);
   }
 }
 
-
-// **Function to send a text message**
-async function sendTextMessage(phoneNumberId, userPhone, text) {
-  const payload = {
-    messaging_product: "whatsapp",
-    to: userPhone,
-    text: { body: text },
-  };
-
-  await axios.post(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, payload, {
-    headers: { Authorization: `Bearer ${GRAPH_API_TOKEN}` },
-  });
-
-  console.log("Text message sent.");
-}
-
-// Start HTTP Server
-https.createServer(options, app).listen(port, () => {
+http.createServer(options, app).listen(port, () => {
   console.log(` Server is running securely on HTTPS port ${port}`);
 });
