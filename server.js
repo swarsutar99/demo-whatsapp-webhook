@@ -11,6 +11,7 @@ import { wrapper } from "axios-cookiejar-support";
 dotenv.config();
 const app = express();
 app.use(express.json());
+let matchId = "";
 
 const { WEBHOOK_VERIFY_TOKEN, GRAPH_API_TOKEN, HEROIC_API_URL, API_KEY, PORT, RAILS_API_URL } = process.env;
 const port = 3002;
@@ -160,9 +161,10 @@ app.post("/webhook", async (req, res) => {
       }
 
       // Step 4: User selects a match
-      let matchId = "";
+      
       if (userMessage.startsWith("game_match_")) {
-        matchId = userMessage.replace("match_", "");
+        matchId = userMessage.replace("game_match_", "");
+        console.log("matchId",matchId)
         await sendTextMessage(business_phone_number_id, userPhone, `✅ You have selected this match. Match ID: ${matchId}\n\n to place bet send message in this format\n aakdaOpen/1/500`);
         return;
       }
@@ -204,30 +206,33 @@ app.post("/webhook", async (req, res) => {
         const betParts = userMessage.split("/");
 
         console.log("betParts", betParts);
-        if (betParts.length === 3) {
-          const marketId = betParts[1].trim();
-          const stake = betParts[2].trim();
-          const matchId = matchId;
-          const runnerId = "751";
+        if (betParts.length === 4) {
+          const heroicMarketType = betParts[0].trim(); // aakdaOpen
+          const runnerId = betParts[1].trim(); // 1
+          const stake = betParts[2].trim(); // 500
+          const matchId = betParts[3].trim(); // 42
+          const marketId = "93"; // Assuming a fixed market_id
           const oddsVal = "10.5";
           const oddsType = "LAGAI";
+          const headers = {
+            'Content-Type': 'application/json',
+            'Api-Key': '2tnFcmn5Lk-a7xwmazAF',
+            'Accept': 'application/json',
+            "Cookie": global.sessionCookie
+          };
+        const betData = {
+          "match_id": String(matchId),
+          "market_id": String(marketId),
+          "stake": String(stake),
+          "runner_id": String(runnerId),
+          "odds_val": String(oddsVal),
+          "odds_type": String(oddsType),
+          "heroic_market_type": String(heroicMarketType)
+        };
 
           try {
             // Step 6: Make the API call to create the bet
-            const betResponse = await axios.post(`${HEROIC_API_URL}/api/v1/casino_tables/card_game/new_matka/matches/create_bet`, {
-              match_id: matchId,
-              market_id: marketId,
-              stake: stake,
-              runner_id: runnerId,
-              odds_val: oddsVal,
-              odds_type: oddsType
-            }, {
-              headers: {
-                "Content-Type": "application/json",
-                "API_KEY": API_KEY,
-                "Cookie": global.sessionCookie
-              }
-            });
+            const betResponse = await axios.post(`${HEROIC_API_URL}/api/v1/casino_tables/card_game/new_matka/matches/create_bet`, betData ,{ headers });
 
             console.log("betResponse", betResponse);
             if (betResponse.status === 200) {
@@ -236,8 +241,8 @@ app.post("/webhook", async (req, res) => {
               await sendTextMessage(business_phone_number_id, userPhone, "❌ Failed to place the bet. Please try again.");
             }
           } catch (error) {
-            console.error("Error placing the bet:", error.response?.data || error);
-            await sendTextMessage(business_phone_number_id, userPhone, "❌ Something went wrong. Please try again later.");
+            console.error("Error placing the bet:", error.response?.data.message || error);
+            await sendTextMessage(business_phone_number_id, userPhone, error.response?.data.message || error);
           }
         } else {
           await sendTextMessage(business_phone_number_id, userPhone, "❌ Invalid format. Please use the correct format: \naakdaOpen/{marketId}/{stake}");
