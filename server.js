@@ -58,7 +58,7 @@ app.get("/webhook", (req, res) => {
     // Extract message and metadata
     const message = req.body.entry?.[0]?.changes[0]?.value?.messages?.[0];
     const business_phone_number_id = req.body.entry?.[0]?.changes[0]?.value?.metadata?.phone_number_id;
-    const eventId = req.body.entry?.[0]?.id; // Unique event ID
+    const eventId = req.body.entry?.[0]?.id;
 
     if (!message || !eventId) return;
 
@@ -67,13 +67,13 @@ app.get("/webhook", (req, res) => {
       console.log(`Duplicate event detected: ${eventId}, skipping...`);
       return;
     }
-    processedEvents.add(eventId); // Mark event as processed
+    processedEvents.add(eventId);
 
     let userMessage = "";
     if (message.text) {
       userMessage = message.text.body;
     } else if (message.interactive?.button_reply) {
-      userMessage = message.interactive.button_reply.id; // Game ID or Match ID
+      userMessage = message.interactive.button_reply.id;
     }
 
     console.log("userMessage:", userMessage);
@@ -82,16 +82,11 @@ app.get("/webhook", (req, res) => {
     try {
       // Step 1: User sends "hi"
       if (userMessage === "hi") {
-        try {
-          await sendTextMessage(business_phone_number_id, userPhone, "Please send your username and password in this format: \n\n*username|password*");
-        } catch (error) {
-          if (error.response?.data?.error?.code === 131047) {
-            await sendTextMessage(business_phone_number_id, userPhone, "❌ You can only interact within 24 hours of your last message. Send a new message to restart.");
-          } else {
-            console.error("Error sending message:", error.response?.data || error);
-            await sendTextMessage(business_phone_number_id, userPhone, "❌ Something went wrong. Please try again later.");
-          }
-        }
+        await sendTextMessage(
+          business_phone_number_id,
+          userPhone,
+          "Please send your username and password in this format: \n\n*username|password*"
+        );
         return;
       }
 
@@ -99,7 +94,11 @@ app.get("/webhook", (req, res) => {
       if (userMessage.includes("|")) {
         const credentials = userMessage.split("|").map((cred) => cred.trim());
         if (credentials.length !== 2) {
-          await sendTextMessage(business_phone_number_id, userPhone, "Invalid format. Please send your credentials as: \n\n*username|password*");
+          await sendTextMessage(
+            business_phone_number_id,
+            userPhone,
+            "Invalid format. Please send your credentials as: \n\n*username|password*"
+          );
           return;
         }
 
@@ -107,16 +106,23 @@ app.get("/webhook", (req, res) => {
         console.log("userName:", userName);
         console.log("password:", password);
 
+        // Get CSRF Token
         let csrfResponse = await axios.get(`${HEROIC_API_URL}/users/sign_in`, {
-          headers: { "Api-Key": "2tnFcmn5Lk-a7xwmazAF", "Accept": "application/xhtml+xml" },
+          headers: {
+            "Api-Key": "2tnFcmn5Lk-a7xwmazAF",
+            "Accept": "application/xhtml+xml",
+          },
           withCredentials: true,
         });
 
-        const csrfTokenMatch = csrfResponse.data.match(/<meta content="(.*?)" name="csrf-token" \/>/);
+        const csrfTokenMatch = csrfResponse.data.match(
+          /<meta content="(.*?)" name="csrf-token" \/>/
+        );
         const csrfToken = csrfTokenMatch ? csrfTokenMatch[1] : null;
         console.log("CSRF Token:", csrfToken);
         if (!csrfToken) throw new Error("CSRF Token not found!");
 
+        // Authenticate User
         const authData = new URLSearchParams({
           utf8: "✓",
           "user[user_name]": userName,
@@ -125,24 +131,64 @@ app.get("/webhook", (req, res) => {
           captcha_key: "123",
         });
 
-        let authResponse = await axios.post(`${HEROIC_API_URL}/users/sign_in`, authData.toString(), {
-          headers: { "Content-Type": "application/x-www-form-urlencoded", "Api-Key": "2tnFcmn5Lk-a7xwmazAF", "Accept": "application/json", "X-CSRF-Token": csrfToken },
-          withCredentials: true,
-          maxRedirects: 0,
-        });
+        let authResponse = await axios.post(
+          `${HEROIC_API_URL}/users/sign_in`,
+          authData.toString(),
+          {
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              "Api-Key": "2tnFcmn5Lk-a7xwmazAF",
+              "Accept": "application/json",
+              "X-CSRF-Token": csrfToken,
+            },
+            withCredentials: true,
+            maxRedirects: 0,
+          }
+        );
 
-        global.sessionCookie = authResponse.headers["set-cookie"]?.[0] || "";
+        // Get Cookie from Auth Response
+        global.sessionCookie =
+          authResponse.headers["set-cookie"]?.[0] || "";
 
         if (authResponse.status === 200) {
-          await sendTextMessage(business_phone_number_id, userPhone, "✅ Login successful! Fetching available games...");
-          const gamesResponse = await axios.get(`${HEROIC_API_URL}/user/games`, { headers: { "Accept": "application/json", "API_KEY": API_KEY } });
+          await sendTextMessage(
+            business_phone_number_id,
+            userPhone,
+            "✅ Login successful! Fetching available games..."
+          );
+
+          // Fetch Available Games
+          const gamesResponse = await axios.get(
+            `${HEROIC_API_URL}/user/games`,
+            {
+              headers: {
+                "Accept": "application/json",
+                "Api-Key": "2tnFcmn5Lk-a7xwmazAF",
+                "Cookie": global.sessionCookie, // Use global.sessionCookie here
+              },
+            }
+          );
 
           const games = gamesResponse.data.casinotables || [];
-          games.length === 0
-            ? await sendTextMessage(business_phone_number_id, userPhone, "No games available right now.")
-            : await sendInteractiveMessage(business_phone_number_id, userPhone, games);
+          if (games.length === 0) {
+            await sendTextMessage(
+              business_phone_number_id,
+              userPhone,
+              "No games available right now."
+            );
+          } else {
+            await sendInteractiveMessage(
+              business_phone_number_id,
+              userPhone,
+              games
+            );
+          }
         } else {
-          await sendTextMessage(business_phone_number_id, userPhone, "❌ Authentication failed. Please check your credentials.");
+          await sendTextMessage(
+            business_phone_number_id,
+            userPhone,
+            "❌ Authentication failed. Please check your credentials."
+          );
         }
         return;
       }
@@ -150,63 +196,37 @@ app.get("/webhook", (req, res) => {
       // Step 3: User selects a game
       if (userMessage.startsWith("game_")) {
         const gameId = userMessage.replace("game_", "");
-        const headers = { "Api-Key": "2tnFcmn5Lk-a7xwmazAF", "Accept": "application/json", "Cookie": global.sessionCookie };
-
-        const matchesResponse = await axios.get(`${HEROIC_API_URL}/lottery/casino_tables/${gameId}/matka_games`, { headers });
-        const matches = matchesResponse.data.matka_in_play_matches || [];
-
-        matches.length === 0
-          ? await sendTextMessage(business_phone_number_id, userPhone, "No matches available for this game.")
-          : await sendInteractiveMessageForMatch(
-              business_phone_number_id,
-              userPhone,
-              matches.map((match) => ({
-                id: `match_${match.provider_id}`,
-                title: `${match.title} - ${new Date(match.start_time).toLocaleString()}`,
-              })),
-              "Select a match:"
-            );
-        return;
-      }
-
-      // Step 4: User selects a match
-      if (userMessage.startsWith("game_match_")) {
-        const matchId = userMessage.replace("game_match_", ""); // Locally scoped matchId
-        console.log("matchId:", matchId);
-        await sendTextMessage(business_phone_number_id, userPhone, `✅ You selected Match ID: ${matchId}\n\nTo place a bet, send: \naakdaOpen/1/500/${matchId}`);
-        return;
-      }
-
-      // Step 5: User places a bet
-      if (userMessage.includes("/")) {
-        const betParts = userMessage.split("/").map((part) => part.trim());
-        if (betParts.length !== 4) {
-          await sendTextMessage(business_phone_number_id, userPhone, "❌ Invalid format. Use: \naakdaOpen/{runnerId}/{stake}/{matchId}");
-          return;
-        }
-
-        const [heroicMarketType, runnerId, stake, matchId] = betParts;
-        const betData = {
-          provider_match_id: String(matchId),
-          market_id: "93",
-          stake: String(stake),
-          runner_id: String(runnerId),
-          odds_val: "10.5",
-          odds_type: "LAGAI",
-          heroic_market_type: String(heroicMarketType),
+        const headers = {
+          "Api-Key": "2tnFcmn5Lk-a7xwmazAF",
+          "Accept": "application/json",
+          "Cookie": global.sessionCookie, // Use global.sessionCookie here
         };
 
-        try {
-          const betResponse = await axios.post(`${HEROIC_API_URL}/api/v1/casino_tables/card_game/new_matka/matches/create_bet`, betData, {
-            headers: { "Content-Type": "application/json", "Api-Key": "2tnFcmn5Lk-a7xwmazAF", "Accept": "application/json", "Cookie": global.sessionCookie },
-          });
+        const matchesResponse = await axios.get(
+          `${HEROIC_API_URL}/lottery/casino_tables/${gameId}/matka_games`,
+          { headers }
+        );
 
-          betResponse.status === 200
-            ? await sendTextMessage(business_phone_number_id, userPhone, "✅ Bet placed successfully!")
-            : await sendTextMessage(business_phone_number_id, userPhone, "❌ Failed to place bet.");
-        } catch (error) {
-          console.error("Error placing bet:", error.response?.data.message || error);
-          await sendTextMessage(business_phone_number_id, userPhone, "❌ Bet placement failed.");
+        const matches = matchesResponse.data.matka_in_play_matches || [];
+
+        if (matches.length === 0) {
+          await sendTextMessage(
+            business_phone_number_id,
+            userPhone,
+            "No matches available for this game."
+          );
+        } else {
+          await sendInteractiveMessageForMatch(
+            business_phone_number_id,
+            userPhone,
+            matches.map((match) => ({
+              id: `match_${match.provider_id}`,
+              title: `${match.title} - ${new Date(
+                match.start_time
+              ).toLocaleString()}`,
+            })),
+            "Select a match:"
+          );
         }
         return;
       }
@@ -214,6 +234,7 @@ app.get("/webhook", (req, res) => {
       console.error("Error processing message:", error.response?.data || error);
     }
   });
+
 
 
 // **Function to send interactive game selection message**
