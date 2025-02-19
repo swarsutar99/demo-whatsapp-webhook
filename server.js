@@ -190,7 +190,7 @@ app.post("/webhook", async (req, res) => {
           await sendTextMessage(business_phone_number_id, userPhone, "No matches available for this game.");
         } else {
           let matchOptions = matches.map(match => ({
-            id: `match_${match.id}`,
+            id: `match_${match.provider_id}`,
             title: `${match.title} - ${new Date(match.start_time).toLocaleString()}`
           }));
 
