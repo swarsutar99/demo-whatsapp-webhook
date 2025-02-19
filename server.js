@@ -174,17 +174,17 @@ app.post("/webhook", async (req, res) => {
         // Fetch matches for selected game
         const matchesResponse = await axios.get(`${HEROIC_API_URL}/lottery/casino_tables/${gameId}/matka_games`, { headers });
 
-        const matches = matchesResponse.data.in_play_matches || [];
+        const matches = matchesResponse.data.matka_in_play_matches || [];
 
         if (matches.length === 0) {
           await sendTextMessage(business_phone_number_id, userPhone, "No matches available for this game.");
         } else {
           let matchOptions = matches.map(match => ({
-            id: `match_${match.provider_id}`,
+            id: `match_${match.id}`,
             title: `${match.title} - ${new Date(match.start_time).toLocaleString()}`
           }));
 
-          await sendInteractiveMessage(business_phone_number_id, userPhone, matchOptions, "Select a match:");
+          await sendInteractiveMessageForMatch(business_phone_number_id, userPhone, matchOptions, "Select a match:");
         }
         return;
       }
@@ -292,6 +292,55 @@ async function sendInteractiveMessage(phoneNumberId, userPhone, games) {
       },
       body: {
         text: "Please select a game to play.",
+      },
+      action: {
+        buttons: buttons,
+      },
+    },
+  };
+
+  await sendMessage(phoneNumberId, userPhone, messageData);
+}
+
+async function sendInteractiveMessageForMatch(phoneNumberId, userPhone, games) {
+  const buttons = games.slice(0, 3).map((game) => {
+    // Validate the title length to ensure it's between 1 and 20 characters
+    let title = game.title;
+
+    if (title.length > 20) {
+      // Truncate if title exceeds 20 characters
+      title = title.slice(0, 20);
+    }
+
+    // Ensure there's at least one character
+    if (title.length < 1) {
+      title = "Game"; // Set a fallback title
+    }
+
+    // Log the button title for debugging
+    console.log(`Button title for game ${game.id}: "${title}"`);
+
+    return {
+      type: "reply",
+      reply: {
+        id: `game_${game.id}`,
+        title: title,
+      },
+    };
+  });
+
+  const messageData = {
+    messaging_product: "whatsapp",
+    to: userPhone,
+    type: "interactive",
+    interactive: {
+      type: "button",
+      header: {
+        type: "text",
+        text: "Select a game:",
+      },
+      body: {
+        text: "Please select a match to play.",
       },
       action: {
         buttons: buttons,
