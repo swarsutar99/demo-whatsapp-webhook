@@ -206,6 +206,7 @@ app.post("/webhook", async (req, res) => {
         const betParts = userMessage.split("/");
 
         console.log("betParts", betParts);
+        console.log("matchId in bet place",matchId)
         if (betParts.length === 4) {
           const heroicMarketType = betParts[0].trim(); // aakdaOpen
           const runnerId = betParts[1].trim(); // 1
