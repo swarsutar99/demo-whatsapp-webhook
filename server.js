@@ -254,7 +254,7 @@ app.post("/webhook", async (req, res) => {
 
 // **Function to send interactive game selection message**
 async function sendInteractiveMessage(phoneNumberId, userPhone, games) {
-  const buttons = games.slice(0, 3).map((game) => {
+  const buttons = games.slice(0, 10).map((game) => {
     // Validate the title length to ensure it's between 1 and 20 characters
     let title = game.title;
 
