@@ -254,21 +254,20 @@ app.post("/webhook", async (req, res) => {
 
 // **Function to send interactive game selection message**
 async function sendInteractiveMessage(phoneNumberId, userPhone, games) {
-  const buttons = games.slice(0, 3).map((game) => {
-    // Validate the title length to ensure it's between 1 and 20 characters
+  const filteredGames = games.filter(game => game.event_type === "matka").slice(0, 3);
+
+  const buttons = filteredGames.map((game) => {
     let title = game.title;
 
+    // Validate the title length (1 to 20 characters)
     if (title.length > 20) {
-      // Truncate if title exceeds 20 characters
       title = title.slice(0, 20);
     }
 
-    // Ensure there's at least one character
     if (title.length < 1) {
-      title = "Game"; // Set a fallback title
+      title = "Game"; // Fallback title
     }
 
-    // Log the button title for debugging
     console.log(`Button title for game ${game.id}: "${title}"`);
 
     return {
@@ -301,6 +300,7 @@ async function sendInteractiveMessage(phoneNumberId, userPhone, games) {
 
   await sendMessage(phoneNumberId, userPhone, messageData);
 }
+
 
 async function sendInteractiveMessageForMatch(phoneNumberId, userPhone, games) {
   const buttons = games.slice(0, 3).map((game) => {
