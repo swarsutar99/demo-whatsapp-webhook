@@ -59,7 +59,7 @@ app.post("/webhook", async (req, res) => {
     } else if (message.interactive?.button_reply) {
       userMessage = message.interactive.button_reply.id; // Game ID or Match ID
     }
-
+    console.log("userMessage",userMessage)
     const userPhone = message.from;
 
     try {
@@ -117,7 +117,7 @@ app.post("/webhook", async (req, res) => {
         authData.append("captcha", "1");
         authData.append("captcha_key", "123");
 
-        console.log("authData", authData);
+        // console.log("authData", authData);
 
         let authResponse = await axios.post(`${HEROIC_API_URL}/users/sign_in`, authData.toString(), {
           headers: {
@@ -130,7 +130,7 @@ app.post("/webhook", async (req, res) => {
           maxRedirects: 0
         });
 
-        console.log("authResponse.headers", authResponse.headers["set-cookie"]);
+        // console.log("authResponse.headers", authResponse.headers["set-cookie"]);
 
         global.cookies = authResponse.headers["set-cookie"];
         console.log("data", authResponse.data);
@@ -161,7 +161,7 @@ app.post("/webhook", async (req, res) => {
 
       // Step 3: User selects a game
       if (userMessage.startsWith("game_")) {
-        console.log("global.sessionCookie", global.sessionCookie);
+        // console.log("global.sessionCookie", global.sessionCookie);
         const gameId = userMessage.replace("game_", "");
         const headers = {
           "Api-Key": "2tnFcmn5Lk-a7xwmazAF",
