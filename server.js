@@ -330,7 +330,7 @@ async function sendInteractiveMessageForMatch(phoneNumberId, userPhone, games) {
     return {
       type: "reply",
       reply: {
-        id: `game_${game.provider_id}`,
+        id: `game_${game.id}`,
         title: title,
       },
     };
