@@ -191,7 +191,7 @@ app.post("/webhook", async (req, res) => {
 
       // Step 4: User selects a match
       let matchId = "";
-      if (userMessage.startsWith("match_")) {
+      if (userMessage.startsWith("game_match_")) {
         matchId = userMessage.replace("match_", "");
         await sendTextMessage(business_phone_number_id, userPhone, `✅ You have selected this match. Match ID: ${matchId}\n\n to place bet send message in this format\n aakdaOpen/1/500`);
         return;
