@@ -169,7 +169,7 @@ app.post("/webhook", async (req, res) => {
           userSelections[userPhone].amount = userMessage;
 
           const finalBet = userSelections[userPhone];
-          await insertBet(userPhone, finalBet.match, finalBet.market, finalBet.runner, finalBet.amount);
+          // await insertBet(userPhone, finalBet.match, finalBet.market, finalBet.runner, finalBet.amount);
           await sendTextMessage(
             business_phone_number_id,
             userPhone,
