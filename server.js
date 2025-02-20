@@ -232,9 +232,9 @@ async function sendInteractiveMessage(phoneNumberId, userPhone, options, headerT
 
 const insertBet = async (userPhone, match, market, runner, amount) => {
     return new Promise((resolve, reject) => {
-        const query = `INSERT INTO bets (match, market, runner, amount) VALUES (?, ?, ?, ?)`;
+        const query = `INSERT INTO bets (user_phone, match, market, runner, amount) VALUES (?, ?, ?, ?, ?)`;
 
-        db.run(query, [match, market, runner, amount], function (err) {
+        db.run(query, [userPhone, match, market, runner, amount], function (err) {
             if (err) {
                 console.error("❌ Error inserting bet:", err);
                 reject(err);
