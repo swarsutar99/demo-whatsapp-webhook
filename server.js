@@ -77,9 +77,9 @@ app.post("/webhook", async (req, res) => {
           business_phone_number_id, 
           userPhone, 
           [
-            { id: "game_1", title: "Game 1" },
-            { id: "game_2", title: "Game 2" },
-            { id: "game_3", title: "Game 3" }
+            { id: "game_1", title: "Kalyan" },
+            { id: "game_2", title: "Rajdjani" },
+            { id: "game_3", title: "Matka" }
           ], 
           "Select a game:", 
           "Please select a game to play."
@@ -93,9 +93,9 @@ app.post("/webhook", async (req, res) => {
           business_phone_number_id, 
           userPhone, 
           [
-            { id: "match_101", title: "Kalyan - 10:00 AM" },
-            { id: "match_102", title: "Rajdjani - 2:00 PM" },
-            { id: "match_103", title: "Matka - 3:00 PM" }
+            { id: "match_101", title: "Match - 20/02/2025 10:00 AM" },
+            { id: "match_102", title: "Match - 19/02/2025 2:00 PM" },
+            { id: "match_103", title: "Match - 18/02/2025 3:00 PM" }
           ], 
           "Select a match:", 
           "Please select a match to proceed."
