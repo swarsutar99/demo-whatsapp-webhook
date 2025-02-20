@@ -11,6 +11,7 @@ const db = await open({
 await db.exec(`
     CREATE TABLE IF NOT EXISTS bets (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_phone TEXT NOT NULL,
         match TEXT NOT NULL,
         market TEXT NOT NULL,
         runner INTEGER NOT NULL,
