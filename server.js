@@ -169,7 +169,7 @@ app.post("/webhook", async (req, res) => {
           userSelections[userPhone].amount = userMessage;
 
           const finalBet = userSelections[userPhone];
-          // await insertBet(userPhone, finalBet.match, finalBet.market, finalBet.runner, finalBet.amount);
+          await insertBet(userPhone, finalBet.match, finalBet.market, finalBet.runner, finalBet.amount);
           await sendTextMessage(
             business_phone_number_id,
             userPhone,
@@ -229,6 +229,22 @@ async function sendInteractiveMessage(phoneNumberId, userPhone, options, headerT
 }
 
 
+
+const insertBet = async (userPhone, match, market, runner, amount) => {
+    return new Promise((resolve, reject) => {
+        const query = `INSERT INTO bets (match, market, runner, amount) VALUES (?, ?, ?, ?)`;
+
+        db.run(query, [match, market, runner, amount], function (err) {
+            if (err) {
+                console.error("❌ Error inserting bet:", err);
+                reject(err);
+            } else {
+                console.log(`✅ Bet inserted successfully! ID: ${this.lastID}`);
+                resolve(this.lastID);
+            }
+        });
+    });
+};
 
 
 
