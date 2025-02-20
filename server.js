@@ -74,14 +74,14 @@ app.post("/webhook", async (req, res) => {
       if (userMessage.toLowerCase() === "hi") {
         await sendTextMessage(business_phone_number_id, userPhone, "Welcome! Please select a game:");
         await sendInteractiveMessage(
-          business_phone_number_id, 
-          userPhone, 
+          business_phone_number_id,
+          userPhone,
           [
             { id: "game_1", title: "Kalyan" },
             { id: "game_2", title: "Rajdjani" },
             { id: "game_3", title: "Matka" }
-          ], 
-          "Select a game:", 
+          ],
+          "Select a game:",
           "Please select a game to play."
         );
         return res.sendStatus(200);
@@ -90,14 +90,14 @@ app.post("/webhook", async (req, res) => {
       // Step 2: User selects a game
       if (userMessage.startsWith("game_")) {
         await sendInteractiveMessage(
-          business_phone_number_id, 
-          userPhone, 
+          business_phone_number_id,
+          userPhone,
           [
             { id: "match_101", title: "Match - 20/02/2025 10:00 AM" },
             { id: "match_102", title: "Match - 19/02/2025 2:00 PM" },
             { id: "match_103", title: "Match - 18/02/2025 3:00 PM" }
-          ], 
-          "Select a match:", 
+          ],
+          "Select a match:",
           "Please select a match to proceed."
         );
         return res.sendStatus(200);
@@ -106,21 +106,21 @@ app.post("/webhook", async (req, res) => {
       // Step 3: User selects a match
       if (userMessage.startsWith("match_")) {
         const matches = {
-          match_101: "Kalyan",
-          match_102: "Rajdjani",
-          match_103: "Matka"
+          "match_101": "Kalyan",
+          "match_102": "Rajdjani",
+          "match_103": "Matka"
         };
 
         if (matches[userMessage]) {
           userSelections[userPhone] = { match: matches[userMessage] };
           await sendInteractiveMessage(
-            business_phone_number_id, 
-            userPhone, 
+            business_phone_number_id,
+            userPhone,
             [
               { id: "market_aakda", title: "Aakda" },
               { id: "market_panne", title: "Panne" }
-            ], 
-            "Select a market to play:", 
+            ],
+            "Select a market to play:",
             "Choose between Aakda or Panne."
           );
         } else {
@@ -140,51 +140,49 @@ app.post("/webhook", async (req, res) => {
 
         userSelections[userPhone].market = marketName;
         await sendTextMessage(
-          business_phone_number_id, 
-          userPhone, 
-          `✅ You selected: ${userSelections[userPhone].match} - ${marketName}\n\nPlease send your runner number (e.g., 200).`
+          business_phone_number_id,
+          userPhone,
+          `✅ You selected: ${userSelections[userPhone].match} - ${marketName}\n\nPlease send your Runner number (e.g., 200).`
         );
         return res.sendStatus(200);
       }
 
-      // Step 5: User sends Runner (Only Number)
-      if (/^\d+$/.test(userMessage)) {  // Checks if the message is a number
-        if (!userSelections[userPhone] || !userSelections[userPhone].market) {
+      // Step 5: User sends Runner (just a number)
+      if (/^\d+$/.test(userMessage)) {
+        if (!userSelections[userPhone]?.market) {
           await sendTextMessage(business_phone_number_id, userPhone, "❌ Please select a market first.");
           return res.sendStatus(200);
         }
 
-        userSelections[userPhone].runner = userMessage;
-        await sendTextMessage(
-          business_phone_number_id, 
-          userPhone, 
-          `✅ You selected Runner ${userMessage}\n\nNow send your amount (e.g., 500).`
-        );
-        return res.sendStatus(200);
-      }
-
-      // Step 6: User sends Amount (Only Number)
-      if (/^\d+$/.test(userMessage)) {  // Checks if the message is a number
-        if (!userSelections[userPhone] || !userSelections[userPhone].runner) {
-          await sendTextMessage(business_phone_number_id, userPhone, "❌ Please select a runner first.");
+        if (!userSelections[userPhone]?.runner) {
+          userSelections[userPhone].runner = userMessage;
+          await sendTextMessage(
+            business_phone_number_id,
+            userPhone,
+            `✅ You selected Runner ${userMessage}\n\nNow send your Amount (e.g., 500).`
+          );
           return res.sendStatus(200);
         }
 
-        userSelections[userPhone].amount = userMessage;
+        // Step 6: User sends Amount (just a number)
+        if (!userSelections[userPhone]?.amount) {
+          userSelections[userPhone].amount = userMessage;
 
-        const finalBet = userSelections[userPhone];
-        await insertBet(userPhone, finalBet.match, finalBet.market, finalBet.runner, finalBet.amount);
-        await sendTextMessage(
-          business_phone_number_id, 
-          userPhone, 
-          `🎯 Your selected bet:\n\n🏆 Match: ${finalBet.match}\n🎲 Market: ${finalBet.market}\n🏇 Runner: ${finalBet.runner}\n💰 Amount: ${finalBet.amount}`
-        );
+          const finalBet = userSelections[userPhone];
+          await insertBet(userPhone, finalBet.match, finalBet.market, finalBet.runner, finalBet.amount);
+          await sendTextMessage(
+            business_phone_number_id,
+            userPhone,
+            `🎯 Your selected bet:\n\n🏆 Match: ${finalBet.match}\n🎲 Market: ${finalBet.market}\n🏇 Runner: ${finalBet.runner}\n💰 Amount: ${finalBet.amount}`
+          );
 
-        // Clear user selection after bet confirmation
-        delete userSelections[userPhone];
-        return res.sendStatus(200);
+          // Clear user selection after bet confirmation
+          delete userSelections[userPhone];
+          return res.sendStatus(200);
+        }
       }
 
+      await sendTextMessage(business_phone_number_id, userPhone, "❌ Invalid input. Please follow the instructions.");
     } catch (error) {
       console.error("Error processing message:", error);
       await sendTextMessage(business_phone_number_id, userPhone, "❌ Something went wrong. Please try again later.");
@@ -193,6 +191,7 @@ app.post("/webhook", async (req, res) => {
 
   res.sendStatus(200);
 });
+
 
 
 
