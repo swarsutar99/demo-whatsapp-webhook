@@ -16,10 +16,10 @@ let matchId = "";
 const { WEBHOOK_VERIFY_TOKEN, GRAPH_API_TOKEN, HEROIC_API_URL, API_KEY, PORT, RAILS_API_URL } = process.env;
 const port = 3002;
 
-const options = {
-  key: fs.readFileSync("/etc/ssl/private/private.key"), 
-  cert: fs.readFileSync("/etc/ssl/certificate_plus_ca_bundle.crt")
-};
+// const options = {
+//   key: fs.readFileSync("/etc/ssl/private/private.key"), 
+//   cert: fs.readFileSync("/etc/ssl/certificate_plus_ca_bundle.crt")
+// };
 
 
 
@@ -58,14 +58,14 @@ app.post("/webhook", async (req, res) => {
   const business_phone_number_id = req.body.entry?.[0]?.changes[0]?.value?.metadata?.phone_number_id;
 
   if (message) {
-    const messageId = message.id; // Unique ID of the message
+    const messageId = message.id;
     if (processedMessages.has(messageId)) {
       console.log("⚠️ Duplicate message detected, ignoring...");
       return res.sendStatus(200);
     }
-    processedMessages.add(messageId); // Mark message as processed
+    processedMessages.add(messageId);
 
-    let userMessage = message.text ? message.text.body : message.interactive?.button_reply?.id;
+    let userMessage = message.text ? message.text.body.trim() : message.interactive?.button_reply?.id;
     console.log("User Message:", userMessage);
     const userPhone = message.from;
 
@@ -105,16 +105,14 @@ app.post("/webhook", async (req, res) => {
 
       // Step 3: User selects a match
       if (userMessage.startsWith("match_")) {
-        const matches = [
-          { id: "match_101", title: "Kalyan" },
-          { id: "match_102", title: "Rajdjani" },
-          { id: "match_103", title: "Matka" }
-        ];
+        const matches = {
+          match_101: "Kalyan",
+          match_102: "Rajdjani",
+          match_103: "Matka"
+        };
 
-        const selectedMatch = matches.find(match => match.id === userMessage);
-
-        if (selectedMatch) {
-          userSelections[userPhone] = { match: selectedMatch.title };
+        if (matches[userMessage]) {
+          userSelections[userPhone] = { match: matches[userMessage] };
           await sendInteractiveMessage(
             business_phone_number_id, 
             userPhone, 
@@ -141,37 +139,46 @@ app.post("/webhook", async (req, res) => {
         }
 
         userSelections[userPhone].market = marketName;
-        await sendTextMessage(business_phone_number_id, userPhone, `✅ You selected: ${userSelections[userPhone].match} - ${marketName}\n\nSend your Runner in this format:\nRunner {runnerId}`);
+        await sendTextMessage(
+          business_phone_number_id, 
+          userPhone, 
+          `✅ You selected: ${userSelections[userPhone].match} - ${marketName}\n\nPlease send your runner number (e.g., 200).`
+        );
         return res.sendStatus(200);
       }
 
-      // Step 5: User sends Runner
-      if (userMessage.startsWith("Runner ")) {
-        const runnerId = userMessage.split(" ")[1];
-
+      // Step 5: User sends Runner (Only Number)
+      if (/^\d+$/.test(userMessage)) {  // Checks if the message is a number
         if (!userSelections[userPhone] || !userSelections[userPhone].market) {
           await sendTextMessage(business_phone_number_id, userPhone, "❌ Please select a market first.");
           return res.sendStatus(200);
         }
 
-        userSelections[userPhone].runner = runnerId;
-        await sendTextMessage(business_phone_number_id, userPhone, `✅ You selected Runner ${runnerId}\n\nNow send your Amount in this format:\nAmount {value}`);
+        userSelections[userPhone].runner = userMessage;
+        await sendTextMessage(
+          business_phone_number_id, 
+          userPhone, 
+          `✅ You selected Runner ${userMessage}\n\nNow send your amount (e.g., 500).`
+        );
         return res.sendStatus(200);
       }
 
-      // Step 6: User sends Amount
-      if (userMessage.startsWith("Amount ")) {
-        const amount = userMessage.split(" ")[1];
-
+      // Step 6: User sends Amount (Only Number)
+      if (/^\d+$/.test(userMessage)) {  // Checks if the message is a number
         if (!userSelections[userPhone] || !userSelections[userPhone].runner) {
           await sendTextMessage(business_phone_number_id, userPhone, "❌ Please select a runner first.");
           return res.sendStatus(200);
         }
 
-        userSelections[userPhone].amount = amount;
+        userSelections[userPhone].amount = userMessage;
 
         const finalBet = userSelections[userPhone];
-        await sendTextMessage(business_phone_number_id, userPhone, `🎯 Your selected bet:\n\n🏆 Match: ${finalBet.match}\n🎲 Market: ${finalBet.market}\n🏇 Runner: ${finalBet.runner}\n💰 Amount: ${finalBet.amount}`);
+        await insertBet(userPhone, finalBet.match, finalBet.market, finalBet.runner, finalBet.amount);
+        await sendTextMessage(
+          business_phone_number_id, 
+          userPhone, 
+          `🎯 Your selected bet:\n\n🏆 Match: ${finalBet.match}\n🎲 Market: ${finalBet.market}\n🏇 Runner: ${finalBet.runner}\n💰 Amount: ${finalBet.amount}`
+        );
 
         // Clear user selection after bet confirmation
         delete userSelections[userPhone];
@@ -336,6 +343,6 @@ async function sendMessage(phoneNumberId, userPhone, messageData) {
   }
 }
 
-https.createServer(options, app).listen(port, () => {
+http.createServer( app).listen(port, () => {
   console.log(` Server is running securely on HTTPS port ${port}`);
 });
