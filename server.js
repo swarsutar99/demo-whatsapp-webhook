@@ -7,7 +7,7 @@ import fs from "fs";
 import qs from "qs";
 import tough from "tough-cookie";
 import { wrapper } from "axios-cookiejar-support";
-
+import db from './db.js';
 dotenv.config();
 const app = express();
 app.use(express.json());
@@ -16,10 +16,10 @@ let matchId = "";
 const { WEBHOOK_VERIFY_TOKEN, GRAPH_API_TOKEN, HEROIC_API_URL, API_KEY, PORT, RAILS_API_URL } = process.env;
 const port = 3002;
 
-const options = {
-  key: fs.readFileSync("/etc/ssl/private/private.key"), 
-  cert: fs.readFileSync("/etc/ssl/certificate_plus_ca_bundle.crt")
-};
+// const options = {
+//   key: fs.readFileSync("/etc/ssl/private/private.key"), 
+//   cert: fs.readFileSync("/etc/ssl/certificate_plus_ca_bundle.crt")
+// };
 
 
 
@@ -358,6 +358,6 @@ async function sendMessage(phoneNumberId, userPhone, messageData) {
   }
 }
 
-https.createServer(options, app).listen(port, () => {
+http.createServer( app).listen(port, () => {
   console.log(` Server is running securely on HTTPS port ${port}`);
 });

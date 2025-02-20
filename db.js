@@ -1,16 +1,14 @@
-const sqlite3 = require('sqlite3').verbose();
+import sqlite3 from 'sqlite3';
+import { open } from 'sqlite';
 
-// Create (or open) the database file
-const db = new sqlite3.Database('./betting.db', sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
-    if (err) {
-        console.error('Error opening database', err);
-    } else {
-        console.log('Connected to SQLite database');
-    }
+// Open or create the database
+const db = await open({
+    filename: './betting.db',
+    driver: sqlite3.Database
 });
 
-// Create the Bets table if it does not exist
-db.run(`
+// Ensure the Bets table exists
+await db.exec(`
     CREATE TABLE IF NOT EXISTS bets (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         match TEXT NOT NULL,
@@ -18,12 +16,8 @@ db.run(`
         runner INTEGER NOT NULL,
         amount DECIMAL(10,2) NOT NULL
     )
-`, (err) => {
-    if (err) {
-        console.error('Error creating table', err);
-    } else {
-        console.log('Bets table is ready');
-    }
-});
+`);
 
-module.exports = db;
+console.log('Connected to SQLite database and Bets table is ready');
+
+export default db;
